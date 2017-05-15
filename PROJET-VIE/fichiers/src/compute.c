@@ -16,12 +16,22 @@ unsigned compute_v0 (unsigned nb_iter);
 unsigned compute_v1 (unsigned nb_iter);
 unsigned compute_v2 (unsigned nb_iter);
 unsigned compute_v3 (unsigned nb_iter);
+unsigned compute_v4 (unsigned nb_iter);
+unsigned compute_v5 (unsigned nb_iter);
+unsigned compute_v6 (unsigned nb_iter);
+unsigned compute_v7 (unsigned nb_iter);
+unsigned compute_v8 (unsigned nb_iter);
 
 void_func_t first_touch [] = {
     NULL,
-    first_touch_v1,
-    first_touch_v2,
     NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL
 };
 
 int_func_t compute [] = {
@@ -29,12 +39,22 @@ int_func_t compute [] = {
     compute_v1,
     compute_v2,
     compute_v3,
+    compute_v4,
+    compute_v5,
+    compute_v6,
+    compute_v7,
+    compute_v8
 };
 
 char *version_name [] = {
     "Séquentielle",
-    "OpenMP",
-    "OpenMP zone",
+    "Séquentielle tuilée",
+    "Séquentielle optimisée",
+    "OpenMP (for)",
+    "OpenMP (for) tuilée",
+    "OpenMP (for) optimisée",
+    "OpenMP (task) tuilée",
+    "OpenMP (task) optimisée",
     "OpenCL",
 };
 
@@ -42,7 +62,12 @@ unsigned opencl_used [] = {
     0,
     0,
     0,
-    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1
 };
 
 ///////////////////////////// Version séquentielle simple
@@ -81,10 +106,39 @@ unsigned compute_v0 (unsigned nb_iter)
     return 0;
 }
 
+/**
+ * Version séquentielle tuilée
+ */
+unsigned compute_v1(unsigned nb_iter)
+{
+    for (unsigned it = 1; it <= nb_iter; it ++) {
+	for (int i = 0; i < DIM; i++)
+	    for (int j = 0; j < DIM; j++){
+		int count = neighborCount(i, j);
+		if(cur_img(i, j) != 0 && (count != 2 && count != 3))
+		    next_img(i, j) = 0;
+		else if(cur_img(i, j) == 0 && count == 3)
+		    next_img(i, j) = couleur;
+		else next_img (i, j) = cur_img (i, j);
+	    }
 
-///////////////////////////// Version OpenMP de base
+	swap_images ();
+    }
+    return 0;
+    return 0; // on ne s'arrête jamais
+}
 
-void first_touch_v1 ()
+/**
+ * Version séquentielle optimisée
+ */
+unsigned compute_v2(unsigned nb_iter) {
+    return 0;
+}
+
+/**
+ * Version OpenMP (for) DE BASE
+ */
+void first_touch_v3 ()
 {
     int i,j ;
 
@@ -96,31 +150,56 @@ void first_touch_v1 ()
 }
 
 // Renvoie le nombre d'itérations effectuées avant stabilisation, ou 0
-unsigned compute_v1(unsigned nb_iter)
-{
+unsigned compute_v3(unsigned nb_iter) {
+    for (unsigned it = 1; it <= nb_iter; it ++) {
+#pragma omp parallel for schedule(static, 100) collapse(2)
+	for (int i = 0; i < DIM; i++)
+	    for (int j = 0; j < DIM; j++){
+		int count = neighborCount(i, j);
+		if(cur_img(i, j) != 0 && (count != 2 && count != 3))
+		    next_img(i, j) = 0;
+		else if(cur_img(i, j) == 0 && count == 3)
+		    next_img(i, j) = couleur;
+		else next_img (i, j) = cur_img (i, j);
+	    }
+
+	swap_images ();
+    }
     return 0;
 }
 
-
-
-///////////////////////////// Version OpenMP optimisée
-
-void first_touch_v2 ()
-{
-
+/**
+ * Version OpenMP (for) tuilée
+ */
+unsigned compute_v4(unsigned nb_iter) {
+    return 0;
 }
 
-// Renvoie le nombre d'itérations effectuées avant stabilisation, ou 0
-unsigned compute_v2(unsigned nb_iter)
-{
-    return 0; // on ne s'arrête jamais
+/**
+ * Version OpenMP (for) optimisée
+ */
+unsigned compute_v5(unsigned nb_iter) {
+    return 0;
 }
 
+/**
+ * Version OpenMP (task) tuilée
+ */
+unsigned compute_v6(unsigned nb_iter) {
+    return 0;
+}
 
-///////////////////////////// Version OpenCL
+/**
+ * Version OpenMP (task) optimisée
+ */
+unsigned compute_v7(unsigned nb_iter) {
+    return 0;
+}
 
-// Renvoie le nombre d'itérations effectuées avant stabilisation, ou 0
-unsigned compute_v3 (unsigned nb_iter)
+/**
+ * Version OpenCL (kernels simpleMoron et advancedRetard)
+ */
+unsigned compute_v8 (unsigned nb_iter)
 {
     return ocl_compute (nb_iter);
 }

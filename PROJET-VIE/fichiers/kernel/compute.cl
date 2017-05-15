@@ -23,6 +23,36 @@ __kernel void transpose (__global unsigned *in, __global unsigned *out)
   out [(x - xloc + yloc) * DIM + y - yloc + xloc] = tile [yloc][xloc];
 }
 
+/**
+ * Jeu de la vie OpenCL (basique)
+ */
+__kernel void simpleMoron (__global unsigned *in, __global unsigned *out)
+{
+  int i = get_global_id (0);
+  int j = get_global_id (1);
+  unsigned value = in [j * DIM + i];
+  if(i <= 0 || j <= 0 || i >= DIM - 1 || j >= DIM - 1) return;
+  
+  int sum = 0;
+  sum += (in[(j - 1) * DIM + (i - 1)] != 0);
+  sum += (in[(j - 1) * DIM + (i - 0)] != 0);
+  sum += (in[(j - 1) * DIM + (i + 1)] != 0);
+  sum += (in[(j - 0) * DIM + (i - 1)] != 0);
+  sum += (in[(j - 0) * DIM + (i + 1)] != 0);
+  sum += (in[(j + 1) * DIM + (i - 1)] != 0);
+  sum += (in[(j + 1) * DIM + (i - 0)] != 0);
+  sum += (in[(j + 1) * DIM + (i + 1)] != 0);
+
+  out[j * DIM + i] = 0xFFFF00FF * ((value == 0 && sum == 3) || (value != 0 && (sum == 2 || sum == 3)));
+
+/*
+  if(value != 0 && (sum != 2 && sum != 3))
+      out[j * DIM + i] = 0;
+  else if(value == 0 && sum == 3)
+      out[j * DIM + i] = 0xFFFF00FF;
+  else out[j * DIM + i] = value;
+*/
+}
 
 
 // NE PAS MODIFIER
