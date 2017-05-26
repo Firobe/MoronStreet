@@ -317,6 +317,8 @@ void graphics_clean (void)
 
   if (image != NULL)
     free (image);
+  if (alt_image != NULL)
+    free (alt_image);
 
   if (surface != NULL)
       SDL_FreeSurface (surface);
@@ -326,6 +328,8 @@ void graphics_clean (void)
 
   IMG_Quit ();
   SDL_Quit ();
+
+  compute_clean();
 }
 
 int graphics_display_enabled (void)

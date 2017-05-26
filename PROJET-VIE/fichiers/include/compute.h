@@ -11,6 +11,7 @@ extern char *version_name [];
 extern unsigned opencl_used [];
 
 extern unsigned version;
+extern void compute_clean();
 
 
 #endif

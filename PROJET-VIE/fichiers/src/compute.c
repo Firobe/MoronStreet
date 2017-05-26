@@ -156,38 +156,57 @@ unsigned compute_v1(unsigned nb_iter){
     return 0; // on ne s'arrête jamais
 }
 
-void setMayChange(int* matrix, int xMin, int xMax,
+void setMayChange(int* matrix, int xT, int yT, int xMin, int xMax,
 	int yMin, int yMax){
     if(xMin == -1) return;
-    for(int i = xMin / TILE_X ; i < xMax / TILE_X ; ++i) 
-	for(int j = yMin / TILE_Y ; j < yMax / TILE_Y ; ++j) 
-	    matrix[i * TILENB_X + j] = 0;
+    for(int i = xT - (xMin == 0) ; i <= xT + (xMax == TILE_X - 1) ; ++i) 
+	for(int j = yT - (yMin == 0) ; j <= yT + (yMax == TILE_Y - 1) ; ++j) 
+	    if(i < TILENB_X && j < TILENB_Y && i >= 0 && j >= 0)
+		matrix[i * TILENB_X + j] = 0;
 }
 
+/*
+int mayChange1[TILE_X];
+int mayChange2[TILENB_Y * TILENB_X];
+*/
+int* mayChange1 = NULL;
+int* mayChange2 = NULL;
+int *cur, *next;
+
+void compute_clean() {
+    if(mayChange1 != NULL) free(mayChange1);
+    if(mayChange2 != NULL) free(mayChange2);
+}
 
 /**
  * Version séquentielle optimisée
  */
 unsigned compute_v2(unsigned nb_iter) {
-    int* mayChange1 = malloc(TILENB_Y * TILENB_X * sizeof(int));
-    int* mayChange2 = malloc(TILENB_Y * TILENB_X * sizeof(int));
-    int *cur = mayChange1, *next = mayChange2;
+    static int init = 0;
+    if(init == 0) {
+	// Initially, everything is computed (0)
+	mayChange1 = calloc(TILENB_X * TILENB_Y, sizeof(int));
+	mayChange2 = calloc(TILENB_X * TILENB_Y, sizeof(int));
+	cur = mayChange1;
+	next = mayChange2;
+	init = 1;
+    }
     int xMin, xMax, yMin, yMax; 
-
-    // Initially, everything is computed (0)
-    for (int i = 0; i < TILENB_X * TILENB_Y; i++) cur[i] = 0;
 
     for (unsigned it = 1; it <= nb_iter; it ++) {
 	// Ideally, the next frame is not computed at all (1)
 	for (int i = 0; i < TILENB_X * TILENB_Y; i++) next[i] = 1;
 
+	int sum = 0;
 	// Compute
 	for (int xT = 0; xT < TILENB_X; xT++)
 	    for (int yT = 0; yT < TILENB_Y; yT++){
 		// No computing if not needed
 		if(cur[xT * TILENB_X + yT] != 0){ 
-		    next[xT * TILENB_X + yT] = cur[xT * TILENB_X + yT] + 1;
-		    if(cur[xT * TILENB_X + yT] > 2) continue;
+		    sum++;
+		    if(cur[xT * TILENB_X + yT] == 2) continue;
+		    if(next[xT * TILENB_X + yT] != 0)
+			next[xT * TILENB_X + yT] = cur[xT * TILENB_X + yT] + 1;
 		    
 		    //Copy the tile only for the first two swaps
 		    for (int x = 0; x < TILE_X; x++)
@@ -198,11 +217,11 @@ unsigned compute_v2(unsigned nb_iter) {
 			}
 		    continue; //Next tile
 		}
-
+		
 		//Iterate over the tile
 		computeOneTile(xT, yT, &xMin, &xMax, &yMin, &yMax);
 		//Report changes made
-		setMayChange(next, xMin, xMax, yMin, yMax);
+		setMayChange(next, xT, yT, xMin, xMax, yMin, yMax);
 	    }
 
 	//Swap buffers
@@ -212,8 +231,6 @@ unsigned compute_v2(unsigned nb_iter) {
 
 	swap_images ();
     }
-    free(mayChange1);
-    free(mayChange2);
     return 0;
 }
 
