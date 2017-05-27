@@ -343,40 +343,48 @@ unsigned compute_v6(unsigned nb_iter) {
  */
 unsigned compute_v7(unsigned nb_iter) {
     initMayChange();
-#pragma omp parallel
-    {
-#pragma omp single nowait
 	for (unsigned it = 1; it <= nb_iter; it ++) {
-	    // Ideally, the next frame is not computed at all (1)
-	    for (int i = 0; i < TILENB_X * TILENB_Y; i++) next[i] = 1;
-	    // Compute
-	    for (int xT = 0; xT < TILENB_X; xT++)
-		for (int yT = 0; yT < TILENB_Y; yT++){
-		    int xMin, xMax, yMin, yMax; 
-		    // No computing if not needed
-		    if(cur[xT * TILENB_X + yT] != 0){ 
-			if(cur[xT * TILENB_X + yT] == 2) continue;
-			if(next[xT * TILENB_X + yT] != 0)
-			    next[xT * TILENB_X + yT] = cur[xT * TILENB_X + yT] + 1;
-			//Copy the tile only for the first two swaps
-			for (int x = 0; x < TILE_X; x++)
-			    for (int y = 0; y < TILE_Y; y++){
-				int i = xT * TILE_X + x;
-				int j = yT * TILE_Y + y;
-				next_img (i, j) = cur_img (i, j);
+	    #pragma omp parallel
+	    {
+		// Ideally, the next frame is not computed at all (1)
+		#pragma omp for schedule(static)
+	    	for (int i = 0; i < TILENB_X * TILENB_Y; i++) next[i] = 1;
+	    	// Compute
+	    	#pragma omp for schedule(static) collapse(2)
+	    	for (int xT = 0; xT < TILENB_X; xT++)
+	    	    for (int yT = 0; yT < TILENB_Y; yT++){
+			#pragma omp task firstprivate(xT, yT)
+			{
+			    int xMin, xMax, yMin, yMax; 
+	    	            // No computing if not needed
+	    	            if(cur[xT * TILENB_X + yT] == 1){ 
+	    	    	    	if(next[xT * TILENB_X + yT] != 0)
+	    	    	    	    next[xT * TILENB_X + yT] = cur[xT * TILENB_X + yT] + 1;
+	    	    	    	//Copy the tile only for the first two swaps
+	    	    	    	for (int x = 0; x < TILE_X; x++)
+	    	    	    	    for (int y = 0; y < TILE_Y; y++){
+	    	    	    		int i = xT * TILE_X + x;
+	    	    	    		int j = yT * TILE_Y + y;
+	    	    	    		next_img (i, j) = cur_img (i, j);
+	    	    	    	    }
+	    	            }
+			    else if(cur[xT * TILENB_X + yT] == 0) {
+				//Iterate over the tile
+				computeOneTile(xT, yT, &xMin, &xMax, &yMin, &yMax);
+				//Report changes made
+				setMayChange(next, xT, yT, xMin, xMax, yMin, yMax);
 			    }
-			continue; //Next tile
-		    }
-		    //Iterate over the tile
-		    computeOneTile(xT, yT, &xMin, &xMax, &yMin, &yMax);
-		    //Report changes made
-		    setMayChange(next, xT, yT, xMin, xMax, yMin, yMax);
-		}
-	    //Swap buffers
-	    swapMayChange();
-	    swap_images ();
+			}
+	    	    }
+	    	#pragma omp taskwait
+	    	//Swap buffers
+	    	#pragma omp single nowait
+	    	{
+	    	    swapMayChange();
+	    	    swap_images ();
+	    	}
+	    }
 	}
-    }
     return 0;
 }
 
