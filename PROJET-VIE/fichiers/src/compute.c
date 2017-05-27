@@ -284,7 +284,6 @@ unsigned compute_v4(unsigned nb_iter) {
  */
 unsigned compute_v5(unsigned nb_iter) {
     initMayChange();
-    int xMin, xMax, yMin, yMax; 
     for (unsigned it = 1; it <= nb_iter; it ++) {
 	// Ideally, the next frame is not computed at all (1)
 	for (int i = 0; i < TILENB_X * TILENB_Y; i++) next[i] = 1;
@@ -292,6 +291,7 @@ unsigned compute_v5(unsigned nb_iter) {
 #pragma omp parallel for schedule(dynamic, 1) collapse(2)
 	for (int xT = 0; xT < TILENB_X; xT++)
 	    for (int yT = 0; yT < TILENB_Y; yT++){
+    		int xMin, xMax, yMin, yMax; 
 		// No computing if not needed
 		if(cur[xT * TILENB_X + yT] != 0){ 
 		    if(cur[xT * TILENB_X + yT] == 2) continue;
@@ -322,6 +322,21 @@ unsigned compute_v5(unsigned nb_iter) {
  * Version OpenMP (task) tuilée
  */
 unsigned compute_v6(unsigned nb_iter) {
+#pragma omp parallel
+    {
+#pragma omp single nowait
+    for (unsigned it = 1; it <= nb_iter; it ++) {
+	for (int xT = 0; xT < TILENB_X; xT++)
+	    for (int yT = 0; yT < TILENB_Y; yT++){
+#pragma omp task firstprivate(xT, yT)
+		{
+		computeOneTile(xT, yT, NULL, NULL, NULL, NULL);
+		}
+	    }
+#pragma omp taskwait
+	swap_images ();
+    }
+}
     return 0;
 }
 
