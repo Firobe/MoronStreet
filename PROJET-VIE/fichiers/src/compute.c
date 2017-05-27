@@ -146,13 +146,11 @@ void computeOneTile(int xT, int yT, int* xMin, int* xMax, int* yMin, int* yMax) 
  */
 unsigned compute_v1(unsigned nb_iter){
     for (unsigned it = 1; it <= nb_iter; it ++) {
-
 	for (int xT = 0; xT < TILENB_X; xT++)
 	    for (int yT = 0; yT < TILENB_Y; yT++)
 		computeOneTile(xT, yT, NULL, NULL, NULL, NULL);
 	swap_images ();
     }
-
     return 0; // on ne s'arrête jamais
 }
 
@@ -271,6 +269,13 @@ unsigned compute_v3(unsigned nb_iter) {
  * Version OpenMP (for) tuilée
  */
 unsigned compute_v4(unsigned nb_iter) {
+    for (unsigned it = 1; it <= nb_iter; it ++) {
+#pragma omp parallel for schedule(dynamic, 1) collapse(2)
+	for (int xT = 0; xT < TILENB_X; xT++)
+	    for (int yT = 0; yT < TILENB_Y; yT++)
+		computeOneTile(xT, yT, NULL, NULL, NULL, NULL);
+	swap_images ();
+    }
     return 0;
 }
 
@@ -278,6 +283,38 @@ unsigned compute_v4(unsigned nb_iter) {
  * Version OpenMP (for) optimisée
  */
 unsigned compute_v5(unsigned nb_iter) {
+    initMayChange();
+    int xMin, xMax, yMin, yMax; 
+    for (unsigned it = 1; it <= nb_iter; it ++) {
+	// Ideally, the next frame is not computed at all (1)
+	for (int i = 0; i < TILENB_X * TILENB_Y; i++) next[i] = 1;
+	// Compute
+#pragma omp parallel for schedule(dynamic, 1) collapse(2)
+	for (int xT = 0; xT < TILENB_X; xT++)
+	    for (int yT = 0; yT < TILENB_Y; yT++){
+		// No computing if not needed
+		if(cur[xT * TILENB_X + yT] != 0){ 
+		    if(cur[xT * TILENB_X + yT] == 2) continue;
+		    if(next[xT * TILENB_X + yT] != 0)
+			next[xT * TILENB_X + yT] = cur[xT * TILENB_X + yT] + 1;
+		    //Copy the tile only for the first two swaps
+		    for (int x = 0; x < TILE_X; x++)
+			for (int y = 0; y < TILE_Y; y++){
+			    int i = xT * TILE_X + x;
+			    int j = yT * TILE_Y + y;
+			    next_img (i, j) = cur_img (i, j);
+			}
+		    continue; //Next tile
+		}
+		//Iterate over the tile
+		computeOneTile(xT, yT, &xMin, &xMax, &yMin, &yMax);
+		//Report changes made
+		setMayChange(next, xT, yT, xMin, xMax, yMin, yMax);
+	    }
+	//Swap buffers
+	swapMayChange();
+	swap_images ();
+    }
     return 0;
 }
 
