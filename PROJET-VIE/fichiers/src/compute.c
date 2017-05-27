@@ -172,6 +172,24 @@ int mayChange2[TILENB_Y * TILENB_X];
 int* mayChange1 = NULL;
 int* mayChange2 = NULL;
 int *cur, *next;
+int init = 0;
+
+void initMayChange() {
+    if(init == 0) {
+	// Initially, everything is computed (0)
+	mayChange1 = calloc(TILENB_X * TILENB_Y, sizeof(int));
+	mayChange2 = calloc(TILENB_X * TILENB_Y, sizeof(int));
+	cur = mayChange1;
+	next = mayChange2;
+	init = 1;
+    }
+}
+
+void swapMayChange() {
+    int* tmp = cur;
+    cur = next;
+    next = tmp;
+}
 
 void compute_clean() {
     if(mayChange1 != NULL) free(mayChange1);
@@ -182,32 +200,19 @@ void compute_clean() {
  * Version séquentielle optimisée
  */
 unsigned compute_v2(unsigned nb_iter) {
-    static int init = 0;
-    if(init == 0) {
-	// Initially, everything is computed (0)
-	mayChange1 = calloc(TILENB_X * TILENB_Y, sizeof(int));
-	mayChange2 = calloc(TILENB_X * TILENB_Y, sizeof(int));
-	cur = mayChange1;
-	next = mayChange2;
-	init = 1;
-    }
+    initMayChange();
     int xMin, xMax, yMin, yMax; 
-
     for (unsigned it = 1; it <= nb_iter; it ++) {
 	// Ideally, the next frame is not computed at all (1)
 	for (int i = 0; i < TILENB_X * TILENB_Y; i++) next[i] = 1;
-
-	int sum = 0;
 	// Compute
 	for (int xT = 0; xT < TILENB_X; xT++)
 	    for (int yT = 0; yT < TILENB_Y; yT++){
 		// No computing if not needed
 		if(cur[xT * TILENB_X + yT] != 0){ 
-		    sum++;
 		    if(cur[xT * TILENB_X + yT] == 2) continue;
 		    if(next[xT * TILENB_X + yT] != 0)
 			next[xT * TILENB_X + yT] = cur[xT * TILENB_X + yT] + 1;
-		    
 		    //Copy the tile only for the first two swaps
 		    for (int x = 0; x < TILE_X; x++)
 			for (int y = 0; y < TILE_Y; y++){
@@ -217,18 +222,13 @@ unsigned compute_v2(unsigned nb_iter) {
 			}
 		    continue; //Next tile
 		}
-		
 		//Iterate over the tile
 		computeOneTile(xT, yT, &xMin, &xMax, &yMin, &yMax);
 		//Report changes made
 		setMayChange(next, xT, yT, xMin, xMax, yMin, yMax);
 	    }
-
 	//Swap buffers
-	int* tmp = cur;
-	cur = next;
-	next = tmp;
-
+	swapMayChange();
 	swap_images ();
     }
     return 0;
