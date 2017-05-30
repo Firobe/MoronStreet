@@ -5,7 +5,7 @@ ITE=$(seq 10) # nombre de mesures
   
 THREADS=$(seq 2 2 24) # nombre de threads
 
-PARAM="-n -s 4096 -a" # parametres commun à toutes les executions 
+PARAM="-n -s 4096 -a -i 100" # parametres commun à toutes les executions 
 
 execute (){
 EXE="./prog $* $PARAM"
