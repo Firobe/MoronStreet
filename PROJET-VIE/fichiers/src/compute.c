@@ -331,11 +331,11 @@ unsigned compute_v7(unsigned nb_iter) {
 	    #pragma omp for schedule(static) collapse(2)
 	    for (int xT = 0; xT < TILENB_X; xT++)
 		for (int yT = 0; yT < TILENB_Y; yT++){
-		    #pragma omp task firstprivate(xT, yT)
-		    {
-			int xMin, xMax, yMin, yMax; 
-			// No computing if not needed
-			if(cur[xT * TILENB_X + yT] == 0) {
+		    // No computing if not needed
+		    if(cur[xT * TILENB_X + yT] == 0) {
+			#pragma omp task firstprivate(xT, yT)
+			{
+			    int xMin, xMax, yMin, yMax; 
 			    //Iterate over the tile
 			    computeOneTile(xT, yT, &xMin, &xMax, &yMin, &yMax);
 			    //Report changes made
