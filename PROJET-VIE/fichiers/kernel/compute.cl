@@ -1,13 +1,3 @@
-__kernel void transpose_naif (__global unsigned *in, __global unsigned *out)
-{
-  int x = get_global_id (0);
-  int y = get_global_id (1);
-
-  out [x * DIM + y] = in [y * DIM + x];
-}
-
-
-
 __kernel void transpose (__global unsigned *in, __global unsigned *out)
 {
   __local unsigned tile [TILEX][TILEY+1];
@@ -23,10 +13,33 @@ __kernel void transpose (__global unsigned *in, __global unsigned *out)
   out [(x - xloc + yloc) * DIM + y - yloc + xloc] = tile [yloc][xloc];
 }
 
+int countNeighbors(__global unsigned* in, int i, int j) {
+  int sum = 0;
+  sum += (in[(j - 1) * DIM + (i - 1)] != 0);
+  sum += (in[(j - 1) * DIM + (i - 0)] != 0);
+  sum += (in[(j - 1) * DIM + (i + 1)] != 0);
+  sum += (in[(j - 0) * DIM + (i - 1)] != 0);
+  sum += (in[(j - 0) * DIM + (i + 1)] != 0);
+  sum += (in[(j + 1) * DIM + (i - 1)] != 0);
+  sum += (in[(j + 1) * DIM + (i - 0)] != 0);
+  sum += (in[(j + 1) * DIM + (i + 1)] != 0);
+  return sum;
+}
+
+__kernel void simpleMoron (__global unsigned *in, __global unsigned *out)
+{
+  int i = get_global_id (0);
+  int j = get_global_id (1);
+  unsigned value = in [j * DIM + i];
+  if(i <= 0 || j <= 0 || i >= DIM - 1 || j >= DIM - 1) return;
+  int sum = countNeighbors(in, i, j);
+  out[j * DIM + i] = 0xFFFF00FF * ((value == 0 && sum == 3) || (value != 0 && (sum == 2 || sum == 3)));
+}
+
 /**
  * Jeu de la vie OpenCL (basique)
  */
-__kernel void simpleMoron (__global unsigned *in, __global unsigned *out)
+__kernel void advancedRetard (__global unsigned *in, __global unsigned *out)
 {
   int i = get_global_id (0);
   int j = get_global_id (1);
@@ -44,14 +57,6 @@ __kernel void simpleMoron (__global unsigned *in, __global unsigned *out)
   sum += (in[(j + 1) * DIM + (i + 1)] != 0);
 
   out[j * DIM + i] = 0xFFFF00FF * ((value == 0 && sum == 3) || (value != 0 && (sum == 2 || sum == 3)));
-
-/*
-  if(value != 0 && (sum != 2 && sum != 3))
-      out[j * DIM + i] = 0;
-  else if(value == 0 && sum == 3)
-      out[j * DIM + i] = 0xFFFF00FF;
-  else out[j * DIM + i] = value;
-*/
 }
 
 
