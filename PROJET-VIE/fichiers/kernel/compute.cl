@@ -40,7 +40,7 @@ __kernel void simpleMoron (__global unsigned *in, __global unsigned *out)
 }
 
 
-int countNeighbors(__local unsigned tile[TILEY + 1][TILEX + 1], int xloc,
+int countNeighbors(__local unsigned tile[TILEY + 2][TILEX + 2], int xloc,
 						   int yloc) {
 	int sum = 0;
 	sum += (tile[yloc - 1][xloc - 1] != 0);
@@ -78,7 +78,7 @@ __kernel void tiledMoron(__global unsigned *in, __global unsigned *out) {
 
 __kernel void advancedRetard(__global unsigned *in, __global unsigned *out,
 				__global unsigned *inStag, __global unsigned *outStag) {
-	__local unsigned stagW = 0, stagE = 0, stagN = 0, stagS = 0, stagC = 0;
+	__local unsigned stagW, stagE, stagN, stagS, stagC;
 	__local unsigned tile [TILEY + 2][TILEX + 2];
 	int x = get_global_id (0);
 	int y = get_global_id (1);
@@ -86,15 +86,19 @@ __kernel void advancedRetard(__global unsigned *in, __global unsigned *out,
 	int yloc = get_local_id (1) + 1;
 	int tX = x / TILEX, tY = y / TILEY;
 
+	//Init local var (by the first worker)
+	if(xloc == 0 && yloc == 0)
+		stagW = stagE = stagN = stagS = stagC = 0;
+
 	//Ignore if stagnating
-	if(inStag[tY][tX] == 1) return;
+	if(inStag[tY * (DIM / TILEX) + tX] == 1) return;
 
 	//Tile initialization
 	tile[yloc][xloc] = in[y * DIM + x];
 	if(xloc == 1) tile[yloc][0] = in[y * DIM + (x - 1)];
 	if(yloc == 1) tile[0][xloc] = in[(y - 1) * DIM + x];
-	if(xloc == TILEX + 1) tile[yloc][TILEX + 2] = in[y * DIM + (x + 1)];
-	if(yloc == TILEY + 1) tile[TILEY + 2][xloc] = in[(y + 1) * DIM + x];
+	if(xloc == TILEX) tile[yloc][TILEX + 1] = in[y * DIM + (x + 1)];
+	if(yloc == TILEY) tile[TILEY + 1][xloc] = in[(y + 1) * DIM + x];
 
 	//Stagnate initialization
 	//outStag[y][x] = 1;
@@ -106,10 +110,10 @@ __kernel void advancedRetard(__global unsigned *in, __global unsigned *out,
 	int sum = countNeighbors(tile, xloc, yloc);
 	out[y * DIM + x] = newVal(tile[yloc][xloc], sum);
 	int change = out[y * DIM + x] != in[y * DIM + x];
-	stagW |= xlock == 1 && change;
-	stagE |= xlock == TILEX + 1 && change;
-	stagN |= ylock == 1 && change;
-	stagS |= xlock == TILEY + 1 && change;
+	stagW |= xloc == 1 && change;
+	stagE |= xloc == TILEX && change;
+	stagN |= yloc == 1 && change;
+	stagS |= xloc == TILEY && change;
 	stagC |= change;
 
 	barrier (CLK_LOCAL_MEM_FENCE);
