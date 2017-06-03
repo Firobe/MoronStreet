@@ -76,24 +76,52 @@ __kernel void tiledMoron(__global unsigned *in, __global unsigned *out) {
 	out[y * DIM + x] = newVal(tile[yloc][xloc], sum);
 }
 
-/*
-__kernel void advancedRetard (__global unsigned *in, __global unsigned *out)
-{
-	int nbTileX = num_groups(0);
-	int nbTileY = num_groups(1);
-	__local unsigned stagnates [nbTileX][nbTileY];
-
+__kernel void advancedRetard(__global unsigned *in, __global unsigned *out,
+				__global unsigned *inStag, __global unsigned *outStag) {
+	__local unsigned stagW = 0, stagE = 0, stagN = 0, stagS = 0, stagC = 0;
+	__local unsigned tile [TILEY + 2][TILEX + 2];
 	int x = get_global_id (0);
 	int y = get_global_id (1);
-	int xloc = get_local_id (0);
-	int yloc = get_local_id (1);
+	int xloc = get_local_id (0) + 1;
+	int yloc = get_local_id (1) + 1;
+	int tX = x / TILEX, tY = y / TILEY;
 
-	unsigned value = in [j * DIM + i];
+	//Ignore if stagnating
+	if(inStag[tY][tX] == 1) return;
+
+	//Tile initialization
+	tile[yloc][xloc] = in[y * DIM + x];
+	if(xloc == 1) tile[yloc][0] = in[y * DIM + (x - 1)];
+	if(yloc == 1) tile[0][xloc] = in[(y - 1) * DIM + x];
+	if(xloc == TILEX + 1) tile[yloc][TILEX + 2] = in[y * DIM + (x + 1)];
+	if(yloc == TILEY + 1) tile[TILEY + 2][xloc] = in[(y + 1) * DIM + x];
+
+	//Stagnate initialization
+	//outStag[y][x] = 1;
+
+	barrier (CLK_LOCAL_MEM_FENCE);
+
+	//Actual computation
 	if(x <= 0 || y <= 0 || x >= DIM - 1 || y >= DIM - 1) return;
-	int sum = countNeighbors(in, x, y);
-	out[y * DIM + x] = newVal(value, sum);
+	int sum = countNeighbors(tile, xloc, yloc);
+	out[y * DIM + x] = newVal(tile[yloc][xloc], sum);
+	int change = out[y * DIM + x] != in[y * DIM + x];
+	stagW |= xlock == 1 && change;
+	stagE |= xlock == TILEX + 1 && change;
+	stagN |= ylock == 1 && change;
+	stagS |= xlock == TILEY + 1 && change;
+	stagC |= change;
+
+	barrier (CLK_LOCAL_MEM_FENCE);
+	
+	//Update stagnation buffer
+	if(stagC == 0) return;
+    for(int i = tX - (stagW != 0) ; i <= tX + (stagE != 0) ; ++i) 
+		for(int j = tY - (stagN != 0) ; j <= tY + (stagS != 0) ; ++j) 
+			if(i < DIM / TILEX && j < DIM / TILEY && i >= 0 && j >= 0)
+				outStag[j * (DIM / TILEX) + i] = 0;
+
 }
-*/
 
 // NE PAS MODIFIER
 static unsigned color_mean (unsigned c1, unsigned c2)
