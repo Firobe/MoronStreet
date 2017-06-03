@@ -14,7 +14,7 @@ __kernel void transpose (__global unsigned *in, __global unsigned *out)
 }
 
 int newVal(unsigned oldVal, int neighbors) {
-	return 0xFFFF00FF * ((value == 0 && sum == 3) || (value != 0 && (sum == 2 || sum == 3)));
+	return 0xFFFF00FF * ((oldVal == 0 && neighbors == 3) || (oldVal != 0 && (neighbors == 2 || neighbors == 3)));
 
 }
 
@@ -55,7 +55,7 @@ int countNeighbors(__local unsigned tile[TILEY + 1][TILEX + 1], int xloc,
 }
 
 __kernel void tiledMoron(__global unsigned *in, __global unsigned *out) {
-	__local unsigned tile [TILEY + 1][TILEX + 1];
+	__local unsigned tile [TILEY + 2][TILEX + 2];
 	int x = get_global_id (0);
 	int y = get_global_id (1);
 	int xloc = get_local_id (0) + 1;
@@ -71,11 +71,12 @@ __kernel void tiledMoron(__global unsigned *in, __global unsigned *out) {
 	barrier (CLK_LOCAL_MEM_FENCE);
 
 	//Actual computation
-	if(i <= 0 || j <= 0 || i >= DIM - 1 || j >= DIM - 1) return;
+	if(x <= 0 || y <= 0 || x >= DIM - 1 || y >= DIM - 1) return;
 	int sum = countNeighbors(tile, xloc, yloc);
-	out[j * DIM + i] = newVal(tile[yloc][xloc], sum);
+	out[y * DIM + x] = newVal(tile[yloc][xloc], sum);
 }
 
+/*
 __kernel void advancedRetard (__global unsigned *in, __global unsigned *out)
 {
 	int nbTileX = num_groups(0);
@@ -92,7 +93,7 @@ __kernel void advancedRetard (__global unsigned *in, __global unsigned *out)
 	int sum = countNeighbors(in, x, y);
 	out[y * DIM + x] = newVal(value, sum);
 }
-
+*/
 
 // NE PAS MODIFIER
 static unsigned color_mean (unsigned c1, unsigned c2)
