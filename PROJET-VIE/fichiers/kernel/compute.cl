@@ -62,21 +62,19 @@ __kernel void tiledMoron(__global unsigned *in, __global unsigned *out) {
 	int yloc = get_local_id (1) + 1;
 
 	//Tile initialization
-	tile[yloc][xloc] = in[y * DIM + x];
-	//Borders
-	if(xloc == 1 && x != 0) tile[yloc][0] = in[y * DIM + (x - 1)];
-	if(yloc == 1 && y != 0) tile[0][xloc] = in[(y - 1) * DIM + x];
-	if(xloc == TILEX && x != DIM - 1)
-		tile[yloc][TILEX + 1] = in[y * DIM + (x + 1)];
-	if(yloc == TILEY && y != DIM - 1)
-		tile[TILEY + 1][xloc] = in[(y + 1) * DIM + x];
+	for(int i = -(yloc == 1 && y > 0) ;
+			i <= (yloc == TILEY && y < DIM - 1) ; ++i)
+		for(int j = -(xloc == 1 && x > 0) ;
+				j <= (xloc == TILEX && x < DIM - 1) ; ++j)
+			tile[yloc + i][xloc + j] = in[(y + i) * DIM + (x + j)];
 
 	barrier (CLK_LOCAL_MEM_FENCE);
 
 	//Actual computation
-	if(x <= 0 || y <= 0 || x >= DIM - 1 || y >= DIM - 1) return;
-	int sum = countNeighbors(tile, xloc, yloc);
-	out[y * DIM + x] = newVal(tile[yloc][xloc], sum);
+	if(x > 0 && y > 0 && x < DIM - 1 && y < DIM - 1) {
+		int sum = countNeighbors(tile, xloc, yloc);
+		out[y * DIM + x] = newVal(tile[yloc][xloc], sum);
+	}
 }
 
 __kernel void advancedRetard(__global unsigned *in, __global unsigned *out,
@@ -100,13 +98,11 @@ __kernel void advancedRetard(__global unsigned *in, __global unsigned *out,
 	if(inStag[tY * (DIM / TILEX) + tX] == 0) {
 
 		//Tile initialization
-		tile[yloc][xloc] = in[y * DIM + x];
-		if(xloc == 1 && x != 0) tile[yloc][0] = in[y * DIM + (x - 1)];
-		if(yloc == 1 && y != 0) tile[0][xloc] = in[(y - 1) * DIM + x];
-		if(xloc == TILEX && x != DIM - 1)
-			tile[yloc][TILEX + 1] = in[y * DIM + (x + 1)];
-		if(yloc == TILEY && y != DIM - 1)
-			tile[TILEY + 1][xloc] = in[(y + 1) * DIM + x];
+		for(int i = -(yloc == 1 && y > 0) ;
+				i <= (yloc == TILEY && y < DIM - 1) ; ++i)
+			for(int j = -(xloc == 1 && x > 0) ;
+					j <= (xloc == TILEX && x < DIM - 1) ; ++j)
+				tile[yloc + i][xloc + j] = in[(y + i) * DIM + (x + j)];
 
 		barrier (CLK_LOCAL_MEM_FENCE);
 
@@ -138,7 +134,7 @@ __kernel void advancedRetard(__global unsigned *in, __global unsigned *out,
 						outStag[j * (DIM / TILEX) + i] = 0;
 	}
 	else {
-		//Ensure that the kernel always meet two kernels
+		//Ensure that the kernel always meet two barriers
 		barrier (CLK_LOCAL_MEM_FENCE);
 		barrier (CLK_LOCAL_MEM_FENCE);
 	}

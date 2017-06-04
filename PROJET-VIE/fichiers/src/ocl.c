@@ -353,25 +353,26 @@ unsigned ocl_compute (unsigned nb_iter)
 				0, NULL, NULL);
 		check(err, "Failed to execute kernel");
 
-		//DEBUG
-		unsigned test[DIM * DIM];
-		err = clEnqueueReadBuffer (queue, cur_buffer, CL_TRUE, 0,
-			sizeof (unsigned) * DIM * DIM, test, 0, NULL, NULL);
-		check(err, "Failed to debug");
-		for(int i = 0 ; i < DIM ; ++i) {
-			for(int j = 0 ; j < DIM ; ++j)
-				printf("%c", (test[i * DIM + j] != 0 ? 'x' : ' '));
-			printf("\n");
-		}
-		printf("=============\n");
-		//END OF DEBUG
-
-
 		// Swap buffers
 		{ cl_mem tmp = cur_buffer; cur_buffer = next_buffer; next_buffer = tmp; }
 		{ cl_mem tmp = cur_stagnate; cur_stagnate = next_stagnate; next_stagnate = tmp; }
 
 	}
+
+	//DEBUG
+	/*
+	unsigned test[DIM * DIM];
+	err = clEnqueueReadBuffer (queue, cur_buffer, CL_TRUE, 0,
+		sizeof (unsigned) * DIM * DIM, test, 0, NULL, NULL);
+	check(err, "Failed to debug");
+	for(int i = 0 ; i < DIM ; ++i) {
+		for(int j = 0 ; j < DIM ; ++j)
+			printf("%c", (test[i * DIM + j] != 0 ? 'x' : ' '));
+		printf("\n");
+	}
+	printf("=============\n");
+	*/
+	//END OF DEBUG
 
 	return 0;
 }
