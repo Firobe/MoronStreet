@@ -201,10 +201,10 @@ void graphics_init (int *argc, char *argv[])
   }
 
   // Initialisation de SDL
+  if (display) {
   if (SDL_Init (SDL_INIT_VIDEO) != 0)
     exit_with_error ("SDL_Init");
 
-  if (display) {
 
     // Création de la fenêtre sur l'écran
     win = SDL_CreateWindow ("Hello World!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
