@@ -3,7 +3,8 @@
 #define GRAPHICS_IS_DEF
 
 
-#include <SDL.h>
+///#include <SDL.h>
+#include "SDL.h"
 
 #include "constants.h"
 
@@ -31,7 +32,7 @@ static inline Uint32 *img_cell (Uint32 *i, int l, int c)
 static inline void swap_images (void)
 {
   Uint32 *tmp = image;
-  
+
   image = alt_image;
   alt_image = tmp;
 }
