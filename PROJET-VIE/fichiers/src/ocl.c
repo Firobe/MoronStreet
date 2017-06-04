@@ -164,7 +164,7 @@ void ocl_init (void)
 
 	// Get list of devices
 	//
-	err = clGetDeviceIDs (pf [platform_no], CL_DEVICE_TYPE_CPU,
+	err = clGetDeviceIDs (pf [platform_no], CL_DEVICE_TYPE_GPU,
 			MAX_DEVICES, devices, &nb_devices);
 	PRINT_DEBUG ('o', "nb devices = %d\n", nb_devices);
 
