@@ -164,7 +164,7 @@ void ocl_init (void)
 
 	// Get list of devices
 	//
-	err = clGetDeviceIDs (pf [platform_no], CL_DEVICE_TYPE_GPU,
+	err = clGetDeviceIDs (pf [platform_no], CL_DEVICE_TYPE_CPU,
 			MAX_DEVICES, devices, &nb_devices);
 	PRINT_DEBUG ('o', "nb devices = %d\n", nb_devices);
 
@@ -342,6 +342,7 @@ unsigned ocl_compute (unsigned nb_iter)
 			err = clEnqueueFillBuffer (queue, next_stagnate, &i, sizeof(unsigned),
 					0, sizeof(unsigned) * (DIM / TILEX) * (DIM / TILEY),
 					0, NULL, NULL);
+			check(err, "Failed to fill buffer");
 			err  = clSetKernelArg (compute_kernel, 2, sizeof (cl_mem), &cur_stagnate);
 			err  = clSetKernelArg (compute_kernel, 3, sizeof (cl_mem), &next_stagnate);
 		}
@@ -351,6 +352,20 @@ unsigned ocl_compute (unsigned nb_iter)
 		err = clEnqueueNDRangeKernel (queue, compute_kernel, 2, NULL, global, local,
 				0, NULL, NULL);
 		check(err, "Failed to execute kernel");
+
+		//DEBUG
+		unsigned test[DIM * DIM];
+		err = clEnqueueReadBuffer (queue, cur_buffer, CL_TRUE, 0,
+			sizeof (unsigned) * DIM * DIM, test, 0, NULL, NULL);
+		check(err, "Failed to debug");
+		for(int i = 0 ; i < DIM ; ++i) {
+			for(int j = 0 ; j < DIM ; ++j)
+				printf("%c", (test[i * DIM + j] != 0 ? 'x' : ' '));
+			printf("\n");
+		}
+		printf("=============\n");
+		//END OF DEBUG
+
 
 		// Swap buffers
 		{ cl_mem tmp = cur_buffer; cur_buffer = next_buffer; next_buffer = tmp; }
@@ -382,6 +397,11 @@ void ocl_update_texture (void)
 	err  = clSetKernelArg (update_kernel, 1, sizeof (cl_mem), &tex_buffer);
 	//Send stagnation buffers
 	if(strcmp(kernel_name, "advancedRetard") == 0) {
+		unsigned i = 1;
+		err = clEnqueueFillBuffer (queue, next_stagnate, &i, sizeof(unsigned),
+				0, sizeof(unsigned) * (DIM / TILEX) * (DIM / TILEY),
+				0, NULL, NULL);
+		check(err, "Failed to fill buffer");
 		err  = clSetKernelArg (compute_kernel, 2, sizeof (cl_mem), &cur_stagnate);
 		err  = clSetKernelArg (compute_kernel, 3, sizeof (cl_mem), &next_stagnate);
 	}
@@ -390,6 +410,7 @@ void ocl_update_texture (void)
 
 	err = clEnqueueNDRangeKernel (queue, update_kernel, 2, NULL, global, local,
 			0, NULL, NULL);
+	printf("%d", *((unsigned*) cur_buffer));
 	check(err, "Failed to execute kernel");
 
 	ocl_release ();

@@ -63,10 +63,13 @@ __kernel void tiledMoron(__global unsigned *in, __global unsigned *out) {
 
 	//Tile initialization
 	tile[yloc][xloc] = in[y * DIM + x];
-	if(xloc == 1) tile[yloc][0] = in[y * DIM + (x - 1)];
-	if(yloc == 1) tile[0][xloc] = in[(y - 1) * DIM + x];
-	if(xloc == TILEX + 1) tile[yloc][TILEX + 2] = in[y * DIM + (x + 1)];
-	if(yloc == TILEY + 1) tile[TILEY + 2][xloc] = in[(y + 1) * DIM + x];
+	//Borders
+	if(xloc == 1 && x != 0) tile[yloc][0] = in[y * DIM + (x - 1)];
+	if(yloc == 1 && y != 0) tile[0][xloc] = in[(y - 1) * DIM + x];
+	if(xloc == TILEX && x != DIM - 1)
+		tile[yloc][TILEX + 1] = in[y * DIM + (x + 1)];
+	if(yloc == TILEY && y != DIM - 1)
+		tile[TILEY + 1][xloc] = in[(y + 1) * DIM + x];
 
 	barrier (CLK_LOCAL_MEM_FENCE);
 
@@ -78,8 +81,11 @@ __kernel void tiledMoron(__global unsigned *in, __global unsigned *out) {
 
 __kernel void advancedRetard(__global unsigned *in, __global unsigned *out,
 				__global unsigned *inStag, __global unsigned *outStag) {
+	//Booleans (check if a modif was made on West,East,North,South
+	//borders or in the Center)
 	__local unsigned stagW, stagE, stagN, stagS, stagC;
 	__local unsigned tile [TILEY + 2][TILEX + 2];
+	unsigned new = 0, old = 0;
 	int x = get_global_id (0);
 	int y = get_global_id (1);
 	int xloc = get_local_id (0) + 1;
@@ -87,43 +93,55 @@ __kernel void advancedRetard(__global unsigned *in, __global unsigned *out,
 	int tX = x / TILEX, tY = y / TILEY;
 
 	//Init local var (by the first worker)
-	if(xloc == 0 && yloc == 0)
+	if(xloc == 1 && yloc == 1)
 		stagW = stagE = stagN = stagS = stagC = 0;
 
 	//Ignore if stagnating
-	if(inStag[tY * (DIM / TILEX) + tX] == 1) return;
+	if(inStag[tY * (DIM / TILEX) + tX] == 0) {
 
-	//Tile initialization
-	tile[yloc][xloc] = in[y * DIM + x];
-	if(xloc == 1) tile[yloc][0] = in[y * DIM + (x - 1)];
-	if(yloc == 1) tile[0][xloc] = in[(y - 1) * DIM + x];
-	if(xloc == TILEX) tile[yloc][TILEX + 1] = in[y * DIM + (x + 1)];
-	if(yloc == TILEY) tile[TILEY + 1][xloc] = in[(y + 1) * DIM + x];
+		//Tile initialization
+		tile[yloc][xloc] = in[y * DIM + x];
+		if(xloc == 1 && x != 0) tile[yloc][0] = in[y * DIM + (x - 1)];
+		if(yloc == 1 && y != 0) tile[0][xloc] = in[(y - 1) * DIM + x];
+		if(xloc == TILEX && x != DIM - 1)
+			tile[yloc][TILEX + 1] = in[y * DIM + (x + 1)];
+		if(yloc == TILEY && y != DIM - 1)
+			tile[TILEY + 1][xloc] = in[(y + 1) * DIM + x];
 
-	//Stagnate initialization
-	//outStag[y][x] = 1;
+		barrier (CLK_LOCAL_MEM_FENCE);
 
-	barrier (CLK_LOCAL_MEM_FENCE);
+		//Actual computation
+		if(x > 0 && y > 0 && x < DIM - 1 && y < DIM - 1) {
+			old = tile[yloc][xloc]; //Old value
+			int sum = countNeighbors(tile, xloc, yloc);
+			new = newVal(old, sum); //New computed value
+		}
+		out[y * DIM + x] = new;
 
-	//Actual computation
-	if(x <= 0 || y <= 0 || x >= DIM - 1 || y >= DIM - 1) return;
-	int sum = countNeighbors(tile, xloc, yloc);
-	out[y * DIM + x] = newVal(tile[yloc][xloc], sum);
-	int change = out[y * DIM + x] != in[y * DIM + x];
-	stagW |= xloc == 1 && change;
-	stagE |= xloc == TILEX && change;
-	stagN |= yloc == 1 && change;
-	stagS |= xloc == TILEY && change;
-	stagC |= change;
+		//Check if a change happened
+		unsigned change = (new != old);
+		stagC += change;
 
-	barrier (CLK_LOCAL_MEM_FENCE);
-	
-	//Update stagnation buffer
-	if(stagC == 0) return;
-    for(int i = tX - (stagW != 0) ; i <= tX + (stagE != 0) ; ++i) 
-		for(int j = tY - (stagN != 0) ; j <= tY + (stagS != 0) ; ++j) 
-			if(i < DIM / TILEX && j < DIM / TILEY && i >= 0 && j >= 0)
-				outStag[j * (DIM / TILEX) + i] = 0;
+		//Check if the change was on a border
+		stagW += xloc == 1 && change;
+		stagE += xloc == TILEX && change;
+		stagN += yloc == 1 && change;
+		stagS += yloc == TILEY && change;
+
+		barrier (CLK_LOCAL_MEM_FENCE);
+		
+		//Update stagnation buffer (by the first worker)
+		if(stagC != 0 && xloc == 1 && yloc == 1)
+			for(int j = tY - (stagN != 0) ; j <= tY + (stagS != 0) ; ++j) 
+				for(int i = tX - (stagW != 0) ; i <= tX + (stagE != 0) ; ++i) 
+					if(i < DIM / TILEX && j < DIM / TILEY && i >= 0 && j >= 0)
+						outStag[j * (DIM / TILEX) + i] = 0;
+	}
+	else {
+		//Ensure that the kernel always meet two kernels
+		barrier (CLK_LOCAL_MEM_FENCE);
+		barrier (CLK_LOCAL_MEM_FENCE);
+	}
 
 }
 
