@@ -10,6 +10,7 @@ void ocl_send_image (unsigned *image);
 unsigned ocl_compute (unsigned nb_iter);
 void ocl_wait (void);
 void ocl_update_texture (void);
+unsigned ocl_compute_partial(unsigned toComp, unsigned* cur, unsigned* next);
 
 extern unsigned SIZE, TILE;
 

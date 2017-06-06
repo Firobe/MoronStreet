@@ -164,7 +164,7 @@ void ocl_init (void)
 
 	// Get list of devices
 	//
-	err = clGetDeviceIDs (pf [platform_no], CL_DEVICE_TYPE_GPU,
+	err = clGetDeviceIDs (pf [platform_no], CL_DEVICE_TYPE_CPU,
 			MAX_DEVICES, devices, &nb_devices);
 	PRINT_DEBUG ('o', "nb devices = %d\n", nb_devices);
 
@@ -361,17 +361,17 @@ unsigned ocl_compute (unsigned nb_iter)
 
 	//DEBUG
 	/*
-	unsigned test[DIM * DIM];
-	err = clEnqueueReadBuffer (queue, cur_buffer, CL_TRUE, 0,
-		sizeof (unsigned) * DIM * DIM, test, 0, NULL, NULL);
-	check(err, "Failed to debug");
-	for(int i = 0 ; i < DIM ; ++i) {
-		for(int j = 0 ; j < DIM ; ++j)
-			printf("%c", (test[i * DIM + j] != 0 ? 'x' : ' '));
-		printf("\n");
-	}
-	printf("=============\n");
-	*/
+	   unsigned test[DIM * DIM];
+	   err = clEnqueueReadBuffer (queue, cur_buffer, CL_TRUE, 0,
+	   sizeof (unsigned) * DIM * DIM, test, 0, NULL, NULL);
+	   check(err, "Failed to debug");
+	   for(int i = 0 ; i < DIM ; ++i) {
+	   for(int j = 0 ; j < DIM ; ++j)
+	   printf("%c", (test[i * DIM + j] != 0 ? 'x' : ' '));
+	   printf("\n");
+	   }
+	   printf("=============\n");
+	   */
 	//END OF DEBUG
 
 	return 0;
@@ -418,3 +418,53 @@ void ocl_update_texture (void)
 
 	clFinish (queue);
 }
+
+
+//Wil compute only the first <toComp> rows of tiles
+unsigned ocl_compute_partial(unsigned toComp, unsigned* cur, unsigned* next)
+{
+	size_t global[2] = { SIZE, toComp * TILEY };  // global domain size for our calculation
+	size_t local[2]  = { TILEX, TILEY };  // local domain size for our calculation
+
+	//Synchronize CPU-computed elements with GPU
+	err = clEnqueueWriteBuffer (queue, cur_buffer, CL_TRUE,
+	sizeof(unsigned) * DIM * toComp * TILEY,
+		sizeof (unsigned) * (SIZE - DIM * toComp * TILEY), cur,
+		0, NULL, NULL);
+	check(err, "Failed to synchronize GPU with CPU");
+
+	// Set kernel arguments
+	//
+	err = 0;
+	err  = clSetKernelArg (compute_kernel, 0, sizeof (cl_mem), &cur_buffer);
+	err  = clSetKernelArg (compute_kernel, 1, sizeof (cl_mem), &next_buffer);
+
+	//Send stagnation buffers
+	if(strcmp(kernel_name, "advancedRetard") == 0) {
+		unsigned i = 1;
+		err = clEnqueueFillBuffer (queue, next_stagnate, &i, sizeof(unsigned),
+				0, sizeof(unsigned) * (DIM / TILEX) * (DIM / TILEY),
+				0, NULL, NULL);
+		check(err, "Failed to fill buffer");
+		err  = clSetKernelArg (compute_kernel, 2, sizeof (cl_mem), &cur_stagnate);
+		err  = clSetKernelArg (compute_kernel, 3, sizeof (cl_mem), &next_stagnate);
+	}
+
+	check (err, "Failed to set kernel arguments");
+
+	err = clEnqueueNDRangeKernel (queue, compute_kernel, 2, NULL, global, local,
+			0, NULL, NULL);
+	check(err, "Failed to execute kernel");
+
+	// Swap buffers
+	{ cl_mem tmp = cur_buffer; cur_buffer = next_buffer; next_buffer = tmp; }
+	{ cl_mem tmp = cur_stagnate; cur_stagnate = next_stagnate; next_stagnate = tmp; }
+
+	//Synchronize computed elements with CPU
+	err = clEnqueueReadBuffer (queue, cur_buffer, CL_TRUE, 0,
+	sizeof (unsigned) * DIM * toComp * TILEY, next, 0, NULL, NULL);
+	check(err, "Failed to debug");
+
+	return 0;
+}
+
