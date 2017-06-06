@@ -1,0 +1,18 @@
+= BASE =
+
+SIZE 256 - 10000 iterations :  7400.0
+SIZE 1024 - 1000 iterations : 12500.0
+SIZE 4096 -  100 iterations : 24000.0
+
+= TILED =
+
+SIZE 256 - 10000 iterations : 11000.0
+SIZE 1024 - 1000 iterations : 16000.0
+SIZE 4096 -  100 iterations : 25000.0
+
+= OPTIMIZED =
+
+SIZE 256 -  10000 iterations :  2200.0
+SIZE 1024 - 10000 iterations : 13500.0
+SIZE 4096 - 10000 iterations : 47000.0
+
