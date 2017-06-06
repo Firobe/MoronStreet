@@ -20,6 +20,7 @@ unsigned compute_v5 (unsigned nb_iter);
 unsigned compute_v6 (unsigned nb_iter);
 unsigned compute_v7 (unsigned nb_iter);
 unsigned compute_v8 (unsigned nb_iter);
+unsigned compute_v9 (unsigned nb_iter);
 
 void_func_t first_touch [] = {
     NULL,
@@ -42,7 +43,8 @@ int_func_t compute [] = {
     compute_v5,
     compute_v6,
     compute_v7,
-    compute_v8
+    compute_v8,
+    compute_v9
 };
 
 char *version_name [] = {
@@ -55,6 +57,7 @@ char *version_name [] = {
     "OpenMP (task) tuilée",
     "OpenMP (task) optimisée",
     "OpenCL",
+	"Partage GPU/CPU"
 };
 
 unsigned opencl_used [] = {
@@ -66,6 +69,7 @@ unsigned opencl_used [] = {
     0,
     0,
     0,
+    1,
     1
 };
 
@@ -360,4 +364,40 @@ unsigned compute_v7(unsigned nb_iter) {
 unsigned compute_v8 (unsigned nb_iter)
 {
     return ocl_compute (nb_iter);
+}
+
+/**
+ * Version OpenMP (task) tuilée partielle
+ */
+unsigned compute_v6_partial(unsigned toComp) {
+	#pragma omp parallel
+	{
+	    #pragma omp for schedule(static) collapse(2)
+	    for (int xT = 0; xT < TILENB_X; xT++)
+		for (int yT = TILENB_Y - toComp; yT < TILENB_Y; yT++){
+		    #pragma omp task firstprivate(xT, yT)
+		    computeOneTile(xT, yT, NULL, NULL, NULL, NULL);
+		}
+	    #pragma omp taskwait
+	}
+    return 0;
+}
+
+#define CPU_GPU_RATIO 0.5
+
+/**
+ * Version partagée CPU/GPU
+ * NON FONCTIONNELLE
+ */
+unsigned compute_v9 (unsigned nb_iter) {
+	//Here, synchronize mainGrid with actual gris
+	for(int i = 0 ; i < nb_iter ; ++i) {
+		//Call CPU computing (partially)
+		compute_v6_partial(TILENB_Y * CPU_GPU_RATIO);
+		//Call GPU computing (will sync itself then sync cur_image
+		//and sync the result with next_image
+		ocl_compute_partial (TILENB_Y * CPU_GPU_RATIO, image, alt_image);
+	    swap_images ();
+	}
+	return 0;
 }
