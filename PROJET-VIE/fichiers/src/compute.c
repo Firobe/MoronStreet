@@ -31,6 +31,7 @@ void_func_t first_touch [] = {
     NULL,
     NULL,
     NULL,
+    NULL,
     NULL
 };
 
@@ -160,8 +161,8 @@ unsigned compute_v1(unsigned nb_iter){
 void setMayChange(int* matrix, int xT, int yT, int xMin, int xMax,
 	int yMin, int yMax){
     if(xMin == -1) return;
-    for(int i = xT - (xMin == 0) ; i <= xT + (xMax == TILE_X - 1) ; ++i) 
-	for(int j = yT - (yMin == 0) ; j <= yT + (yMax == TILE_Y - 1) ; ++j) 
+    for(int i = xT - (xMin == 0) ; i <= xT + (xMax == TILE_X - 1) ; ++i)
+	for(int j = yT - (yMin == 0) ; j <= yT + (yMax == TILE_Y - 1) ; ++j)
 	    if(i < TILENB_X && j < TILENB_Y && i >= 0 && j >= 0)
 		matrix[i * TILENB_X + j] = 0;
 }
@@ -202,7 +203,7 @@ void compute_clean() {
  */
 unsigned compute_v2(unsigned nb_iter) {
     initMayChange();
-    int xMin, xMax, yMin, yMax; 
+    int xMin, xMax, yMin, yMax;
     for (unsigned it = 1; it <= nb_iter; it ++) {
 	// Ideally, the next frame is not computed at all (1)
 	for (int i = 0; i < TILENB_X * TILENB_Y; i++) next[i] = 1;
@@ -282,7 +283,7 @@ unsigned compute_v5(unsigned nb_iter) {
 	#pragma omp parallel for schedule(dynamic, 1) collapse(2)
 	for (int xT = 0; xT < TILENB_X; xT++)
 	    for (int yT = 0; yT < TILENB_Y; yT++){
-		int xMin, xMax, yMin, yMax; 
+		int xMin, xMax, yMin, yMax;
 		// No computing if not needed
 		if(cur[xT * TILENB_X + yT] != 0)
 		    continue; //Next tile
@@ -338,7 +339,7 @@ unsigned compute_v7(unsigned nb_iter) {
 		    if(cur[xT * TILENB_X + yT] == 0) {
 			#pragma omp task firstprivate(xT, yT)
 			{
-			    int xMin, xMax, yMin, yMax; 
+			    int xMin, xMax, yMin, yMax;
 			    //Iterate over the tile
 			    computeOneTile(xT, yT, &xMin, &xMax, &yMin, &yMax);
 			    //Report changes made
